@@ -14,12 +14,20 @@
 template <class TClass> class TSubclassOf;
 
 DECLARE_DELEGATE_RetVal(TSubclassOf<UCameraMode>, FCameraModeDelegate);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FCustomCameraDelegate, const TArray<UCameraMode*>&, CustomCameraModes);
 
 
 /**
  * UModalCameraComponent
  *
  * A camera component that supports blending between multiple camera modes.
+ *
+ * The priority is evaluated as follows:
+ * 1. Debug Camera(s), set on the Cheat Manager, if enabled.
+ * 2. Custom Camera, a multicast delegate with priority levels.
+ * 3. Cinematic Camera, set on the component.
+ * 4. Ability Camera, set by a Gameplay Ability given to the Owning Actor. @see ModularGameplayAbilities plugin.
+ * 5. Default Camera, set on the component.
  *
  * @todo Have this rely on a ModularGameplayExperiences interface instead of copy/paste templates.
  */
@@ -45,14 +53,26 @@ public:
 	// Delegate used to query for the best camera mode.
 	FCameraModeDelegate DetermineCameraModeDelegate;
 
+	FCustomCameraDelegate CustomCameraDelegate;
+
 	// Add an offset to the field of view.  The offset is only for one frame, it gets cleared once it is applied.
 	void AddFieldOfViewOffset(const float FovOffset) { FieldOfViewOffset += FovOffset; }
+
+	TSubclassOf<UCameraMode> DetermineCameraMode() const;
 
 	/** Overrides the camera from an active gameplay ability */
 	void SetAbilityCameraMode(TSubclassOf<UModalCameraMode> CameraMode, const FGameplayAbilitySpecHandle& OwningSpecHandle);
 
 	/** Clears the camera override if it is set */
 	void ClearAbilityCameraMode(const FGameplayAbilitySpecHandle& OwningSpecHandle);
+
+	void SetCinematicCameraMode(TSubclassOf<UModalCameraMode> CameraMode);
+
+	void ClearCinematicCameraMode();
+
+	void SetDebugCameraMode(TSubclassOf<UModalCameraMode> CameraMode);
+
+	void ClearDebugCameraMode();
 
 	/**
 	 * @ingroup UActorComponent
@@ -123,8 +143,6 @@ protected:
 	UPROPERTY()
 	TObjectPtr<UCameraModeStack> CameraModeStack;
 
-	TSubclassOf<UCameraMode> DetermineCameraMode() const;
-
 	// Offset applied to the field of view.  The offset is only for one frame, it gets cleared once it is applied.
 	float FieldOfViewOffset;
 
@@ -141,6 +159,15 @@ protected:
 
 	/** Spec handle for the last ability to set a camera mode. */
 	FGameplayAbilitySpecHandle AbilityCameraModeOwningSpecHandle;
+
+	UPROPERTY()
+	TSubclassOf<UCameraMode> CinematicCameraMode;
+
+	UPROPERTY()
+	TArray<TObjectPtr<UCameraMode>> CustomCameraModeStack;
+
+	UPROPERTY()
+	TSubclassOf<UCameraMode> DebugCameraMode;
 
 	virtual void OnRegister() override;
 	virtual void GetCameraView(float DeltaTime, FMinimalViewInfo& DesiredView) override;

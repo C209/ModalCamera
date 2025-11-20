@@ -43,6 +43,26 @@ void UModalCameraComponent::ClearAbilityCameraMode(const FGameplayAbilitySpecHan
 	}
 }
 
+void UModalCameraComponent::SetCinematicCameraMode(TSubclassOf<UModalCameraMode> CameraMode)
+{
+	CinematicCameraMode = CameraMode;
+}
+
+void UModalCameraComponent::ClearCinematicCameraMode()
+{
+	CinematicCameraMode = nullptr;
+}
+
+void UModalCameraComponent::SetDebugCameraMode(TSubclassOf<UModalCameraMode> CameraMode)
+{
+	DebugCameraMode = CameraMode;
+}
+
+void UModalCameraComponent::ClearDebugCameraMode()
+{
+		DebugCameraMode = nullptr;
+}
+
 void UModalCameraComponent::BeginPlay()
 {
 	Super::BeginPlay();
@@ -244,7 +264,7 @@ void UModalCameraComponent::OnActorInitStateChanged(const FActorInitStateChanged
 	{
 		if (Params.FeatureState == ModularGameplayTags::InitState_DataInitialized)
 		{
-			// If the extension component says all all other components are initialized, try to progress to next state
+			// If the extension component says all other components are initialized, try to progress to next state.
 			CheckDefaultInitialization();
 		}
 	}
@@ -267,10 +287,24 @@ void UModalCameraComponent::CheckDefaultInitialization()
 
 TSubclassOf<UCameraMode> UModalCameraComponent::DetermineCameraMode() const
 {
-	if (AbilityCameraMode)
+	if (DebugCameraMode) return DebugCameraMode;
+
+	CustomCameraDelegate.Broadcast(CustomCameraModeStack);
+	for (int i = 0; i < CustomCameraModeStack.Num(); i++)
 	{
-		return AbilityCameraMode;
+		if (i == CustomCameraModeStack.Num() - 1)
+		{
+			return CustomCameraModeStack[i]->GetClass();
+		}
+		if (const TSubclassOf<UModalCameraMode> CustomCameraMode{CustomCameraModeStack[i]->GetClass()})
+		{
+			CameraModeStack->PushCameraMode(CustomCameraMode->GetClass());
+		}
 	}
+
+	if (CinematicCameraMode) return CinematicCameraMode;
+
+	if (AbilityCameraMode) return AbilityCameraMode;
 
 	if (const APawn* Pawn = GetPawn<APawn>(); !Pawn)
 	{
